@@ -10,6 +10,7 @@ import { NotesPanel } from '../components/notes/NotesPanel'
 import { useNotesStore, initNotesStore } from '../stores/useNotesStore'
 import { CATEGORY_COLORS } from '../stores/useNotesStore'
 import type { NoteCategory } from '../stores/useNotesStore'
+import { AIPartnerPanel } from '../components/AIPartnerPanel'
 
 const PROJECT_TITLES: Record<string, string> = {
   demo: 'The Last Water (Draft 3)',
@@ -27,6 +28,7 @@ export default function Project() {
 
   const [screenplay, setScreenplay] = useState(DEMO_SCREENPLAY)
   const [highlightBlockId, setHighlightBlockId] = useState<string | undefined>()
+  const [aiActiveNote, setAIActiveNote] = useState<{ id: string; content: string; blockLabel?: string } | null>(null)
 
   // Seed the store with demo data when the project loads
   useEffect(() => {
@@ -110,8 +112,9 @@ export default function Project() {
         {/* Notes panel (left, 300px) + Note detail drawer (rendered inside NotesPanel, z:50) */}
         <NotesPanel
           onNoteSelect={handleNoteSelect}
-          onAskAI={(_noteId, _content) => {
-            if (isDemoMode) showToast('Demo mode — AI not connected', 'demo')
+          onAskAI={(noteId, content) => {
+            const note = notes.find((n) => n.id === noteId)
+            setAIActiveNote({ id: noteId, content, blockLabel: note?.blockLabel })
           }}
         />
 
@@ -130,32 +133,12 @@ export default function Project() {
           />
         </main>
 
-        {/* AI Partner strip (collapsed) */}
-        <aside
-          className="flex-shrink-0 flex flex-col items-center justify-between py-6 px-3"
-          style={{ width: '48px', borderLeft: '1px solid #E0DED9', backgroundColor: '#F8F7F4' }}
-        >
-          <div
-            className="w-7 h-7 rounded-full flex items-center justify-center"
-            style={{ backgroundColor: '#EBF2F8' }}
-            title="AI Partner — coming soon"
-          >
-            <span style={{ fontSize: '12px' }}>✦</span>
-          </div>
-          <span
-            className="text-xs select-none"
-            style={{
-              color: '#B0AEA9',
-              fontFamily: 'Inter, system-ui, sans-serif',
-              writingMode: 'vertical-rl',
-              textOrientation: 'mixed',
-              transform: 'rotate(180deg)',
-              letterSpacing: '0.05em',
-            }}
-          >
-            AI Partner
-          </span>
-        </aside>
+        <AIPartnerPanel
+          screenplay={screenplay}
+          notes={notes}
+          activeNote={aiActiveNote}
+          onActiveNoteClear={() => setAIActiveNote(null)}
+        />
       </div>
     </div>
   )

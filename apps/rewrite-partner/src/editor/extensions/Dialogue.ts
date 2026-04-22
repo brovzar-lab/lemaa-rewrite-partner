@@ -7,7 +7,11 @@ export const Dialogue = Node.create({
 
   addAttributes() {
     return {
-      id: { default: null },
+      id: {
+        default: null,
+        parseHTML: (element) => element.getAttribute('data-id'),
+        renderHTML: (attributes) => ({ 'data-id': attributes.id }),
+      },
     }
   },
 
