@@ -1,3 +1,4 @@
+import { useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { isDemoMode } from '../lib/demo'
 import { DemoBadge } from '../components/DemoBadge'
@@ -125,13 +126,27 @@ function ProjectCard({
 export default function Home() {
   const navigate = useNavigate()
   const { showToast } = useToast()
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   function handleImportFdx() {
-    if (isDemoMode) {
-      navigate('/project/demo')
-      return
+    fileInputRef.current?.click()
+  }
+
+  async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const text = await file.text()
+    let fountain: string
+    if (file.name.endsWith('.fdx')) {
+      const { fdxToFountain } = await import('../lib/converter')
+      fountain = fdxToFountain(text)
+    } else {
+      fountain = text
     }
-    showToast('FDX import coming soon', 'info')
+    sessionStorage.setItem('imported_screenplay', fountain)
+    if (isDemoMode) showToast("Demo mode — edits won't be saved", 'demo')
+    navigate('/project/imported')
+    e.target.value = ''
   }
 
   function handleNewScript() {
@@ -188,6 +203,13 @@ export default function Home() {
             </p>
           </div>
           <div className="flex items-center gap-2">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".fdx,.fountain"
+              style={{ display: 'none' }}
+              onChange={handleFileChange}
+            />
             <button
               onClick={handleImportFdx}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-card text-sm font-medium transition-colors"

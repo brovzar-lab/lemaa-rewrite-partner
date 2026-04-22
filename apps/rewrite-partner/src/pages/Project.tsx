@@ -1,10 +1,10 @@
 import { useParams, useNavigate } from 'react-router-dom'
-import { useState, useCallback, useEffect } from 'react'
+import { useRef, useState, useCallback, useEffect } from 'react'
 import { isDemoMode } from '../lib/demo'
 import { DemoBadge } from '../components/DemoBadge'
 import { DEMO_SCREENPLAY } from '../lib/demoData'
 import { useToast } from '../hooks/useToast'
-import { ArrowLeft, ChevronRight } from 'lucide-react'
+import { ArrowLeft, ChevronRight, Upload } from 'lucide-react'
 import { ScreenplayEditor, type Note as EditorNote } from '../editor/ScreenplayEditor'
 import { NotesPanel } from '../components/notes/NotesPanel'
 import { useNotesStore, initNotesStore } from '../stores/useNotesStore'
@@ -16,24 +16,29 @@ const PROJECT_TITLES: Record<string, string> = {
   demo: 'The Last Water (Draft 3)',
   'demo-2': 'Night Protocol (Spec)',
   'demo-3': 'Harbor View (Pilot Draft)',
+  imported: 'Imported Script',
 }
 
 export default function Project() {
   const { projectId = 'demo' } = useParams<{ projectId: string }>()
   const navigate = useNavigate()
   const { showToast } = useToast()
+  const projectFileInputRef = useRef<HTMLInputElement>(null)
 
   const notes = useNotesStore((s) => s.notes)
   const updateBlockIds = useNotesStore((s) => s.updateBlockIds)
 
-  const [screenplay, setScreenplay] = useState(DEMO_SCREENPLAY)
+  const importedScreenplay =
+    projectId === 'imported'
+      ? (sessionStorage.getItem('imported_screenplay') ?? DEMO_SCREENPLAY)
+      : DEMO_SCREENPLAY
+  const [screenplay, setScreenplay] = useState(importedScreenplay)
   const [highlightBlockId, setHighlightBlockId] = useState<string | undefined>()
   const [aiActiveNote, setAIActiveNote] = useState<{ id: string; content: string; blockLabel?: string } | null>(null)
   const [showEditHint, setShowEditHint] = useState(
     () => !localStorage.getItem('rp_edit_hint_dismissed')
   )
 
-  // Seed the store with demo data when the project loads
   useEffect(() => {
     initNotesStore(projectId)
   }, [projectId])
@@ -42,7 +47,6 @@ export default function Project() {
   const totalCount = notes.length
   const projectTitle = PROJECT_TITLES[projectId] ?? 'Script'
 
-  // Build editor-compatible notes from the store
   const editorNotes: EditorNote[] = notes.map((n) => ({
     id: n.id,
     blockId: n.blockId,
@@ -50,7 +54,6 @@ export default function Project() {
     content: n.content,
   }))
 
-  // When editor mounts, resolve blockIds for all store notes
   const handleEditorReady = useCallback(
     (getBlockId: (text: string) => string | undefined) => {
       updateBlockIds(getBlockId)
@@ -58,16 +61,31 @@ export default function Project() {
     [updateBlockIds],
   )
 
-  // Note panel click → scroll editor to block
   function handleNoteSelect(blockId: string) {
     setHighlightBlockId(blockId)
   }
 
-  // Gutter click → select note in panel (it will scroll into view next render)
   function handleGutterNoteClick(noteId: string) {
     const note = notes.find((n) => n.id === noteId)
     if (note?.blockId) setHighlightBlockId(note.blockId)
     useNotesStore.getState().selectNote(noteId)
+  }
+
+  async function handleProjectFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const text = await file.text()
+    let fountain: string
+    if (file.name.endsWith('.fdx')) {
+      const { fdxToFountain } = await import('../lib/converter')
+      fountain = fdxToFountain(text)
+    } else {
+      fountain = text
+    }
+    setScreenplay(fountain)
+    sessionStorage.setItem('imported_screenplay', fountain)
+    if (isDemoMode) showToast("Demo mode — edits won't be saved", 'demo')
+    e.target.value = ''
   }
 
   return (
@@ -108,6 +126,33 @@ export default function Project() {
         >
           {resolvedCount} of {totalCount} notes resolved
         </span>
+        <input
+          ref={projectFileInputRef}
+          type="file"
+          accept=".fdx,.fountain"
+          style={{ display: 'none' }}
+          onChange={handleProjectFileChange}
+        />
+        <button
+          onClick={() => projectFileInputRef.current?.click()}
+          className="flex items-center gap-1 text-xs px-2 py-1 rounded-card transition-colors flex-shrink-0"
+          style={{
+            backgroundColor: '#FFFFFF',
+            color: '#6B6860',
+            border: '1px solid #E0DED9',
+            fontFamily: 'Inter, system-ui, sans-serif',
+            cursor: 'pointer',
+          }}
+          onMouseEnter={(e) => {
+            ;(e.currentTarget as HTMLElement).style.borderColor = '#B8D4E8'
+          }}
+          onMouseLeave={(e) => {
+            ;(e.currentTarget as HTMLElement).style.borderColor = '#E0DED9'
+          }}
+        >
+          <Upload className="w-3 h-3" />
+          Import script
+        </button>
         {isDemoMode && <DemoBadge />}
       </header>
 
@@ -127,14 +172,18 @@ export default function Project() {
         >
           <span>✏️ This screenplay is fully editable — click anywhere to start typing or import your own script</span>
           <button
-            onClick={() => { setShowEditHint(false); localStorage.setItem('rp_edit_hint_dismissed', '1') }}
+            onClick={() => {
+              setShowEditHint(false)
+              localStorage.setItem('rp_edit_hint_dismissed', '1')
+            }}
             style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#3D6B8E', fontSize: 16 }}
-          >✕</button>
+          >
+            ✕
+          </button>
         </div>
       )}
 
       <div className="flex flex-1 overflow-hidden" style={{ height: 'calc(100vh - 49px)' }}>
-        {/* Notes panel (left, 300px) + Note detail drawer (rendered inside NotesPanel, z:50) */}
         <NotesPanel
           onNoteSelect={handleNoteSelect}
           onAskAI={(noteId, content) => {
@@ -143,7 +192,6 @@ export default function Project() {
           }}
         />
 
-        {/* Screenplay editor */}
         <main style={{ flex: 1, minWidth: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
           <ScreenplayEditor
             content={screenplay}
