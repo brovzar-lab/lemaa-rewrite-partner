@@ -34,6 +34,22 @@ body {
   color: #1A1916;
   max-width: 36em;
   margin: 0 auto;
+  cursor: text;
+  min-height: 200px;
+}
+
+.screenplay-scroll {
+  cursor: text;
+}
+
+.screenplay-content .ProseMirror.is-editor-empty:first-child::before {
+  content: 'Your screenplay starts here. Click to edit...';
+  float: left;
+  color: #B0AEA9;
+  font-family: 'Courier Prime', Courier, monospace;
+  font-style: italic;
+  pointer-events: none;
+  height: 0;
 }
 
 .screenplay-content .scene-heading {

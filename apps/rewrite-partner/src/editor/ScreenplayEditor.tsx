@@ -192,7 +192,7 @@ export function ScreenplayEditor({
   }
 
   return (
-    <div className="screenplay-editor-root" style={{ display: 'flex', height: '100%', overflow: 'hidden' }}>
+    <div className="screenplay-editor-root" style={{ display: 'flex', flex: 1, minHeight: 0, overflow: 'hidden' }}>
       {/* Gutter */}
       <div
         ref={gutterRef}
@@ -273,7 +273,8 @@ export function ScreenplayEditor({
       <div
         ref={editorWrapRef}
         className="screenplay-scroll"
-        style={{ flex: 1, overflowY: 'auto', padding: '32px 48px', backgroundColor: '#FFFFFF' }}
+        style={{ flex: 1, overflowY: 'auto', padding: '32px 48px', backgroundColor: '#FFFFFF', cursor: 'text' }}
+        onClick={() => editor?.commands.focus()}
       >
         <EditorContent editor={editor} className="screenplay-content" />
       </div>

@@ -29,6 +29,9 @@ export default function Project() {
   const [screenplay, setScreenplay] = useState(DEMO_SCREENPLAY)
   const [highlightBlockId, setHighlightBlockId] = useState<string | undefined>()
   const [aiActiveNote, setAIActiveNote] = useState<{ id: string; content: string; blockLabel?: string } | null>(null)
+  const [showEditHint, setShowEditHint] = useState(
+    () => !localStorage.getItem('rp_edit_hint_dismissed')
+  )
 
   // Seed the store with demo data when the project loads
   useEffect(() => {
@@ -108,6 +111,28 @@ export default function Project() {
         {isDemoMode && <DemoBadge />}
       </header>
 
+      {showEditHint && (
+        <div
+          style={{
+            padding: '8px 16px',
+            backgroundColor: '#EBF2F8',
+            borderBottom: '1px solid #B8D4E8',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            fontFamily: 'Inter, system-ui, sans-serif',
+            fontSize: 13,
+            color: '#3D6B8E',
+          }}
+        >
+          <span>✏️ This screenplay is fully editable — click anywhere to start typing or import your own script</span>
+          <button
+            onClick={() => { setShowEditHint(false); localStorage.setItem('rp_edit_hint_dismissed', '1') }}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#3D6B8E', fontSize: 16 }}
+          >✕</button>
+        </div>
+      )}
+
       <div className="flex flex-1 overflow-hidden" style={{ height: 'calc(100vh - 49px)' }}>
         {/* Notes panel (left, 300px) + Note detail drawer (rendered inside NotesPanel, z:50) */}
         <NotesPanel
@@ -119,7 +144,7 @@ export default function Project() {
         />
 
         {/* Screenplay editor */}
-        <main className="flex-1 overflow-hidden">
+        <main style={{ flex: 1, minWidth: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
           <ScreenplayEditor
             content={screenplay}
             notes={editorNotes}
