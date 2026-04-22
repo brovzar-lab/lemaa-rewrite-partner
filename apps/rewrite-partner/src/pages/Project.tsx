@@ -1,10 +1,10 @@
 import { useParams, useNavigate } from 'react-router-dom'
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { isDemoMode } from '../lib/demo'
 import { DemoBadge } from '../components/DemoBadge'
 import { DEMO_NOTES, DEMO_SCREENPLAY, type DemoNote } from '../lib/demoData'
 import { useToast } from '../hooks/useToast'
-import { ArrowLeft, FileText, CheckCircle2, Circle, ChevronRight } from 'lucide-react'
+import { ArrowLeft, FileText, CheckCircle2, Circle, ChevronRight, Upload } from 'lucide-react'
 
 const CATEGORY_COLORS: Record<DemoNote['color'], { bg: string; border: string; text: string }> = {
   story: { bg: '#FDF0EF', border: '#E8A5A0', text: '#C0443C' },
@@ -161,6 +161,7 @@ const PROJECT_TITLES: Record<string, string> = {
   demo: 'The Last Water (Draft 3)',
   'demo-2': 'Night Protocol (Spec)',
   'demo-3': 'Harbor View (Pilot Draft)',
+  imported: 'Imported Script',
 }
 
 export default function Project() {
@@ -169,6 +170,30 @@ export default function Project() {
   const { showToast } = useToast()
   const [notes, setNotes] = useState<DemoNote[]>(DEMO_NOTES)
   const [filter, setFilter] = useState<'all' | 'active' | 'resolved'>('active')
+  const projectFileInputRef = useRef<HTMLInputElement>(null)
+
+  const importedScreenplay =
+    projectId === 'imported'
+      ? (sessionStorage.getItem('imported_screenplay') ?? DEMO_SCREENPLAY)
+      : DEMO_SCREENPLAY
+  const [screenplay, setScreenplay] = useState(importedScreenplay)
+
+  async function handleProjectFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const text = await file.text()
+    let fountain: string
+    if (file.name.endsWith('.fdx')) {
+      const { fdxToFountain } = await import('../lib/converter')
+      fountain = fdxToFountain(text)
+    } else {
+      fountain = text
+    }
+    setScreenplay(fountain)
+    sessionStorage.setItem('imported_screenplay', fountain)
+    if (isDemoMode) showToast("Demo mode — edits won't be saved", 'demo')
+    e.target.value = ''
+  }
 
   function handleResolve(id: string) {
     setNotes((prev) => prev.map((n) => (n.id === id ? { ...n, resolved: !n.resolved } : n)))
@@ -224,6 +249,29 @@ export default function Project() {
         >
           {resolvedCount} of {totalCount} notes resolved
         </span>
+        <input
+          ref={projectFileInputRef}
+          type="file"
+          accept=".fdx,.fountain"
+          style={{ display: 'none' }}
+          onChange={handleProjectFileChange}
+        />
+        <button
+          onClick={() => projectFileInputRef.current?.click()}
+          className="flex items-center gap-1 text-xs px-2 py-1 rounded-card transition-colors flex-shrink-0"
+          style={{
+            backgroundColor: '#FFFFFF',
+            color: '#6B6860',
+            border: '1px solid #E0DED9',
+            fontFamily: 'Inter, system-ui, sans-serif',
+            cursor: 'pointer',
+          }}
+          onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = '#B8D4E8' }}
+          onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = '#E0DED9' }}
+        >
+          <Upload className="w-3 h-3" />
+          Import script
+        </button>
         {isDemoMode && <DemoBadge />}
       </header>
 
@@ -281,7 +329,7 @@ export default function Project() {
 
         {/* Script viewer */}
         <main className="flex-1 overflow-hidden">
-          <ScreenplayViewer text={DEMO_SCREENPLAY} />
+          <ScreenplayViewer text={screenplay} />
         </main>
 
         {/* AI Partner strip (collapsed) */}
