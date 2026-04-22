@@ -13,6 +13,10 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@tiptap/extension-unique-id": "^2.27.2",
+    "@tiptap/pm": "^2.27.2",
+    "@tiptap/react": "^2.27.2",
+    "@tiptap/starter-kit": "^2.27.2",
     "fast-xml-parser": "^4.4.1",
     "firebase": "^10.11.0",
     "fountain-js": "^1.1.1",

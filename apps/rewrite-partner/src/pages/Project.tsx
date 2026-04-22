@@ -1,10 +1,11 @@
 import { useParams, useNavigate } from 'react-router-dom'
-import { useState } from 'react'
+import { useState, useCallback } from 'react'
 import { isDemoMode } from '../lib/demo'
 import { DemoBadge } from '../components/DemoBadge'
 import { DEMO_NOTES, DEMO_SCREENPLAY, type DemoNote } from '../lib/demoData'
 import { useToast } from '../hooks/useToast'
 import { ArrowLeft, FileText, CheckCircle2, Circle, ChevronRight } from 'lucide-react'
+import { ScreenplayEditor, type Note } from '../editor/ScreenplayEditor'
 
 const CATEGORY_COLORS: Record<DemoNote['color'], { bg: string; border: string; text: string }> = {
   story: { bg: '#FDF0EF', border: '#E8A5A0', text: '#C0443C' },
@@ -21,7 +22,16 @@ const CATEGORY_LABELS: Record<DemoNote['category'], string> = {
   dialogue: 'Dialogue',
 }
 
-function NoteCard({ note, onResolve }: { note: DemoNote; onResolve: (id: string) => void }) {
+const CATEGORY_DOT_COLORS: Record<DemoNote['color'], string> = {
+  story: '#C0443C',
+  character: '#C46E2C',
+  dialogue: '#8A6A00',
+  scene: '#3A7A52',
+  research: '#2D6EA8',
+  producer: '#6B4A9E',
+}
+
+function NoteCard({ note, onResolve, onClick }: { note: DemoNote; onResolve: (id: string) => void; onClick?: (note: DemoNote) => void }) {
   const colors = CATEGORY_COLORS[note.color]
 
   return (
@@ -31,7 +41,9 @@ function NoteCard({ note, onResolve }: { note: DemoNote; onResolve: (id: string)
         backgroundColor: note.resolved ? '#F2F1EE' : colors.bg,
         border: `1px solid ${note.resolved ? '#E0DED9' : colors.border}`,
         opacity: note.resolved ? 0.7 : 1,
+        cursor: onClick ? 'pointer' : 'default',
       }}
+      onClick={() => onClick?.(note)}
     >
       <div className="flex items-start gap-2 mb-2">
         <button
@@ -169,11 +181,31 @@ export default function Project() {
   const { showToast } = useToast()
   const [notes, setNotes] = useState<DemoNote[]>(DEMO_NOTES)
   const [filter, setFilter] = useState<'all' | 'active' | 'resolved'>('active')
+  const [screenplay, setScreenplay] = useState(DEMO_SCREENPLAY)
+  const [highlightBlockId, setHighlightBlockId] = useState<string | undefined>()
+  const [editorNotes, setEditorNotes] = useState<Note[]>([])
 
   function handleResolve(id: string) {
     setNotes((prev) => prev.map((n) => (n.id === id ? { ...n, resolved: !n.resolved } : n)))
     if (isDemoMode) showToast('Demo mode — not saved', 'demo')
   }
+
+  function handleNoteCardClick(note: DemoNote) {
+    const editorNote = editorNotes.find((n) => n.id === note.id)
+    if (editorNote?.blockId) setHighlightBlockId(editorNote.blockId)
+  }
+
+  const handleEditorReady = useCallback((getBlockId: (text: string) => string | undefined) => {
+    // Map demo notes (by sceneRef) to editor block IDs
+    setEditorNotes(
+      DEMO_NOTES.map((n) => ({
+        id: n.id,
+        blockId: getBlockId(n.sceneRef) ?? '',
+        categoryColor: CATEGORY_DOT_COLORS[n.color],
+        content: n.text,
+      }))
+    )
+  }, [])
 
   const resolvedCount = notes.filter((n) => n.resolved).length
   const totalCount = notes.length
@@ -273,15 +305,28 @@ export default function Project() {
               </div>
             ) : (
               filteredNotes.map((note) => (
-                <NoteCard key={note.id} note={note} onResolve={handleResolve} />
+                <NoteCard key={note.id} note={note} onResolve={handleResolve} onClick={handleNoteCardClick} />
               ))
             )}
           </div>
         </aside>
 
-        {/* Script viewer */}
+        {/* Script editor */}
         <main className="flex-1 overflow-hidden">
-          <ScreenplayViewer text={DEMO_SCREENPLAY} />
+          <ScreenplayEditor
+            content={screenplay}
+            notes={editorNotes}
+            onContentChange={(fountain) => {
+              setScreenplay(fountain)
+              if (isDemoMode) showToast('Demo mode — not saved', 'demo')
+            }}
+            onNoteClick={(noteId) => {
+              const match = notes.find((n) => n.id === noteId)
+              if (match) handleNoteCardClick(match)
+            }}
+            highlightBlockId={highlightBlockId}
+            onEditorReady={handleEditorReady}
+          />
         </main>
 
         {/* AI Partner strip (collapsed) */}
