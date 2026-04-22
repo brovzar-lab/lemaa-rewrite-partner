@@ -1,4 +1,6 @@
+import { useState } from 'react'
 import { isDemoMode } from '../lib/demo'
+import { signIn, signInWithGoogle } from '../lib/auth'
 import { DemoBadge } from './DemoBadge'
 import { FileText, LogIn } from 'lucide-react'
 
@@ -7,6 +9,38 @@ interface AuthScreenProps {
 }
 
 export function AuthScreen({ onContinue }: AuthScreenProps) {
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [error, setError] = useState<string | null>(null)
+  const [loading, setLoading] = useState(false)
+
+  async function handleEmailSignIn(e: React.FormEvent) {
+    e.preventDefault()
+    setError(null)
+    setLoading(true)
+    try {
+      await signIn(email, password)
+      onContinue()
+    } catch {
+      setError('Invalid email or password.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function handleGoogleSignIn() {
+    setError(null)
+    setLoading(true)
+    try {
+      await signInWithGoogle()
+      onContinue()
+    } catch {
+      setError('Google sign-in failed. Try again.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
   return (
     <div
       className="min-h-screen flex flex-col items-center justify-center px-4"
@@ -77,34 +111,95 @@ export function AuthScreen({ onContinue }: AuthScreenProps) {
         )}
 
         <button
-          disabled={isDemoMode}
+          onClick={!isDemoMode ? handleGoogleSignIn : undefined}
+          disabled={isDemoMode || loading}
           className="w-full py-2.5 px-4 rounded-card text-sm font-medium transition-colors"
           style={{
             backgroundColor: isDemoMode ? '#F2F1EE' : '#3D6B8E',
             color: isDemoMode ? '#B0AEA9' : '#FFFFFF',
             border: `1px solid ${isDemoMode ? '#E0DED9' : 'transparent'}`,
             fontFamily: 'Inter, system-ui, sans-serif',
-            cursor: isDemoMode ? 'not-allowed' : 'pointer',
+            cursor: isDemoMode || loading ? 'not-allowed' : 'pointer',
           }}
           title={isDemoMode ? 'Sign-in not available in demo mode' : undefined}
         >
           Sign in with Google
         </button>
 
-        <button
-          disabled={isDemoMode}
-          className="w-full py-2.5 px-4 rounded-card text-sm font-medium transition-colors"
-          style={{
-            backgroundColor: isDemoMode ? '#F2F1EE' : '#FFFFFF',
-            color: isDemoMode ? '#B0AEA9' : '#1A1916',
-            border: '1px solid #E0DED9',
-            fontFamily: 'Inter, system-ui, sans-serif',
-            cursor: isDemoMode ? 'not-allowed' : 'pointer',
-          }}
-          title={isDemoMode ? 'Sign-in not available in demo mode' : undefined}
-        >
-          Sign in with Email
-        </button>
+        {!isDemoMode && (
+          <form onSubmit={handleEmailSignIn} className="flex flex-col gap-2">
+            <input
+              type="email"
+              placeholder="Email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              className="w-full py-2 px-3 rounded-card text-sm"
+              style={{
+                border: '1px solid #E0DED9',
+                fontFamily: 'Inter, system-ui, sans-serif',
+                color: '#1A1916',
+                backgroundColor: '#FFFFFF',
+                outline: 'none',
+              }}
+            />
+            <input
+              type="password"
+              placeholder="Password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              className="w-full py-2 px-3 rounded-card text-sm"
+              style={{
+                border: '1px solid #E0DED9',
+                fontFamily: 'Inter, system-ui, sans-serif',
+                color: '#1A1916',
+                backgroundColor: '#FFFFFF',
+                outline: 'none',
+              }}
+            />
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full py-2.5 px-4 rounded-card text-sm font-medium transition-colors"
+              style={{
+                backgroundColor: '#FFFFFF',
+                color: '#1A1916',
+                border: '1px solid #E0DED9',
+                fontFamily: 'Inter, system-ui, sans-serif',
+                cursor: loading ? 'not-allowed' : 'pointer',
+              }}
+            >
+              {loading ? 'Signing in…' : 'Sign in with Email'}
+            </button>
+          </form>
+        )}
+
+        {isDemoMode && (
+          <button
+            disabled
+            className="w-full py-2.5 px-4 rounded-card text-sm font-medium"
+            style={{
+              backgroundColor: '#F2F1EE',
+              color: '#B0AEA9',
+              border: '1px solid #E0DED9',
+              fontFamily: 'Inter, system-ui, sans-serif',
+              cursor: 'not-allowed',
+            }}
+            title="Sign-in not available in demo mode"
+          >
+            Sign in with Email
+          </button>
+        )}
+
+        {error && (
+          <p
+            className="text-xs text-center"
+            style={{ color: '#C0443C', fontFamily: 'Inter, system-ui, sans-serif' }}
+          >
+            {error}
+          </p>
+        )}
       </div>
 
       {isDemoMode && (
