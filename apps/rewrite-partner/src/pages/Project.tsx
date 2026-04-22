@@ -1,173 +1,15 @@
 import { useParams, useNavigate } from 'react-router-dom'
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { isDemoMode } from '../lib/demo'
 import { DemoBadge } from '../components/DemoBadge'
-import { DEMO_NOTES, DEMO_SCREENPLAY, type DemoNote } from '../lib/demoData'
+import { DEMO_SCREENPLAY } from '../lib/demoData'
 import { useToast } from '../hooks/useToast'
-import { ArrowLeft, FileText, CheckCircle2, Circle, ChevronRight } from 'lucide-react'
-import { ScreenplayEditor, type Note } from '../editor/ScreenplayEditor'
-
-const CATEGORY_COLORS: Record<DemoNote['color'], { bg: string; border: string; text: string }> = {
-  story: { bg: '#FDF0EF', border: '#E8A5A0', text: '#C0443C' },
-  character: { bg: '#FEF4EC', border: '#E8BE8C', text: '#C46E2C' },
-  dialogue: { bg: '#FFFBE6', border: '#DDD080', text: '#8A6A00' },
-  scene: { bg: '#EEF7F2', border: '#8DC8A4', text: '#3A7A52' },
-  research: { bg: '#EDF4FB', border: '#80B4DC', text: '#2D6EA8' },
-  producer: { bg: '#F4EFF9', border: '#B090D0', text: '#6B4A9E' },
-}
-
-const CATEGORY_LABELS: Record<DemoNote['category'], string> = {
-  story: 'Story / Structure',
-  character: 'Character',
-  dialogue: 'Dialogue',
-}
-
-const CATEGORY_DOT_COLORS: Record<DemoNote['color'], string> = {
-  story: '#C0443C',
-  character: '#C46E2C',
-  dialogue: '#8A6A00',
-  scene: '#3A7A52',
-  research: '#2D6EA8',
-  producer: '#6B4A9E',
-}
-
-function NoteCard({ note, onResolve, onClick }: { note: DemoNote; onResolve: (id: string) => void; onClick?: (note: DemoNote) => void }) {
-  const colors = CATEGORY_COLORS[note.color]
-
-  return (
-    <div
-      className="rounded-card p-3 transition-all"
-      style={{
-        backgroundColor: note.resolved ? '#F2F1EE' : colors.bg,
-        border: `1px solid ${note.resolved ? '#E0DED9' : colors.border}`,
-        opacity: note.resolved ? 0.7 : 1,
-        cursor: onClick ? 'pointer' : 'default',
-      }}
-      onClick={() => onClick?.(note)}
-    >
-      <div className="flex items-start gap-2 mb-2">
-        <button
-          onClick={() => onResolve(note.id)}
-          className="flex-shrink-0 mt-0.5 transition-opacity hover:opacity-70"
-          title={note.resolved ? 'Mark unresolved' : 'Mark resolved'}
-        >
-          {note.resolved ? (
-            <CheckCircle2 className="w-4 h-4" style={{ color: '#3A7A52' }} />
-          ) : (
-            <Circle className="w-4 h-4" style={{ color: colors.text }} />
-          )}
-        </button>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-1.5 mb-1 flex-wrap">
-            <span
-              className="text-xs font-medium px-1.5 py-0.5 rounded-full"
-              style={{
-                backgroundColor: colors.bg,
-                color: colors.text,
-                border: `1px solid ${colors.border}`,
-                fontFamily: 'Inter, system-ui, sans-serif',
-              }}
-            >
-              {CATEGORY_LABELS[note.category]}
-            </span>
-            {note.priority === 'critical' && (
-              <span
-                className="text-xs font-medium px-1.5 py-0.5 rounded-full"
-                style={{ backgroundColor: '#C0443C', color: '#FFFFFF', fontFamily: 'Inter, system-ui, sans-serif' }}
-              >
-                Critical
-              </span>
-            )}
-            {note.priority === 'high' && (
-              <span
-                className="text-xs font-medium px-1.5 py-0.5 rounded-full"
-                style={{ backgroundColor: '#C46E2C', color: '#FFFFFF', fontFamily: 'Inter, system-ui, sans-serif' }}
-              >
-                High
-              </span>
-            )}
-            {note.priority === 'low' && (
-              <span
-                className="text-xs font-medium px-1.5 py-0.5 rounded-full"
-                style={{
-                  backgroundColor: 'transparent',
-                  color: '#3D6B8E',
-                  border: '1px solid #3D6B8E',
-                  fontFamily: 'Inter, system-ui, sans-serif',
-                }}
-              >
-                Low
-              </span>
-            )}
-          </div>
-          <p
-            className="text-xs leading-relaxed"
-            style={{
-              color: note.resolved ? '#B0AEA9' : '#1A1916',
-              fontFamily: 'Inter, system-ui, sans-serif',
-              textDecoration: note.resolved ? 'line-through' : 'none',
-            }}
-          >
-            {note.text.length > 140 ? note.text.slice(0, 140) + '…' : note.text}
-          </p>
-          <p
-            className="text-xs mt-1.5"
-            style={{ color: '#B0AEA9', fontFamily: 'Inter, system-ui, sans-serif' }}
-          >
-            {note.sceneRef} · {note.source}
-          </p>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-function ScreenplayViewer({ text }: { text: string }) {
-  const lines = text.split('\n')
-
-  return (
-    <div className="h-full overflow-y-auto p-8" style={{ backgroundColor: '#FFFFFF' }}>
-      <div
-        className="max-w-xl mx-auto"
-        style={{
-          fontFamily: '"Courier Prime", Courier, monospace',
-          fontSize: '12pt',
-          lineHeight: '1.6',
-          color: '#1A1916',
-        }}
-      >
-        {lines.map((line, i) => {
-          const trimmed = line.trim()
-          const isSlugline =
-            trimmed.startsWith('INT.') ||
-            trimmed.startsWith('EXT.') ||
-            trimmed.startsWith('SMASH CUT')
-          const isCharacter =
-            trimmed.length > 0 &&
-            trimmed === trimmed.toUpperCase() &&
-            !isSlugline &&
-            !trimmed.startsWith('(') &&
-            trimmed.length < 40
-          const isDialogue = line.startsWith('          ')
-
-          return (
-            <div
-              key={i}
-              style={{
-                fontWeight: isSlugline ? 700 : 400,
-                marginTop: isSlugline ? '1.5em' : 0,
-                marginBottom: isSlugline ? '0.5em' : 0,
-                paddingLeft: isDialogue ? '2.5em' : isCharacter ? '3.7em' : 0,
-              }}
-            >
-              {line || ' '}
-            </div>
-          )
-        })}
-      </div>
-    </div>
-  )
-}
+import { ArrowLeft, ChevronRight } from 'lucide-react'
+import { ScreenplayEditor, type Note as EditorNote } from '../editor/ScreenplayEditor'
+import { NotesPanel } from '../components/notes/NotesPanel'
+import { useNotesStore, initNotesStore } from '../stores/useNotesStore'
+import { CATEGORY_COLORS } from '../stores/useNotesStore'
+import type { NoteCategory } from '../stores/useNotesStore'
 
 const PROJECT_TITLES: Record<string, string> = {
   demo: 'The Last Water (Draft 3)',
@@ -176,47 +18,52 @@ const PROJECT_TITLES: Record<string, string> = {
 }
 
 export default function Project() {
-  const { projectId } = useParams<{ projectId: string }>()
+  const { projectId = 'demo' } = useParams<{ projectId: string }>()
   const navigate = useNavigate()
   const { showToast } = useToast()
-  const [notes, setNotes] = useState<DemoNote[]>(DEMO_NOTES)
-  const [filter, setFilter] = useState<'all' | 'active' | 'resolved'>('active')
+
+  const notes = useNotesStore((s) => s.notes)
+  const updateBlockIds = useNotesStore((s) => s.updateBlockIds)
+
   const [screenplay, setScreenplay] = useState(DEMO_SCREENPLAY)
   const [highlightBlockId, setHighlightBlockId] = useState<string | undefined>()
-  const [editorNotes, setEditorNotes] = useState<Note[]>([])
 
-  function handleResolve(id: string) {
-    setNotes((prev) => prev.map((n) => (n.id === id ? { ...n, resolved: !n.resolved } : n)))
-    if (isDemoMode) showToast('Demo mode — not saved', 'demo')
-  }
-
-  function handleNoteCardClick(note: DemoNote) {
-    const editorNote = editorNotes.find((n) => n.id === note.id)
-    if (editorNote?.blockId) setHighlightBlockId(editorNote.blockId)
-  }
-
-  const handleEditorReady = useCallback((getBlockId: (text: string) => string | undefined) => {
-    // Map demo notes (by sceneRef) to editor block IDs
-    setEditorNotes(
-      DEMO_NOTES.map((n) => ({
-        id: n.id,
-        blockId: getBlockId(n.sceneRef) ?? '',
-        categoryColor: CATEGORY_DOT_COLORS[n.color],
-        content: n.text,
-      }))
-    )
-  }, [])
+  // Seed the store with demo data when the project loads
+  useEffect(() => {
+    initNotesStore(projectId)
+  }, [projectId])
 
   const resolvedCount = notes.filter((n) => n.resolved).length
   const totalCount = notes.length
+  const projectTitle = PROJECT_TITLES[projectId] ?? 'Script'
 
-  const filteredNotes = notes.filter((n) => {
-    if (filter === 'active') return !n.resolved
-    if (filter === 'resolved') return n.resolved
-    return true
-  })
+  // Build editor-compatible notes from the store
+  const editorNotes: EditorNote[] = notes.map((n) => ({
+    id: n.id,
+    blockId: n.blockId,
+    categoryColor: CATEGORY_COLORS[n.color as NoteCategory]?.accent ?? '#6B6860',
+    content: n.content,
+  }))
 
-  const projectTitle = PROJECT_TITLES[projectId ?? ''] ?? 'Script'
+  // When editor mounts, resolve blockIds for all store notes
+  const handleEditorReady = useCallback(
+    (getBlockId: (text: string) => string | undefined) => {
+      updateBlockIds(getBlockId)
+    },
+    [updateBlockIds],
+  )
+
+  // Note panel click → scroll editor to block
+  function handleNoteSelect(blockId: string) {
+    setHighlightBlockId(blockId)
+  }
+
+  // Gutter click → select note in panel (it will scroll into view next render)
+  function handleGutterNoteClick(noteId: string) {
+    const note = notes.find((n) => n.id === noteId)
+    if (note?.blockId) setHighlightBlockId(note.blockId)
+    useNotesStore.getState().selectNote(noteId)
+  }
 
   return (
     <div className="min-h-screen flex flex-col" style={{ backgroundColor: '#F8F7F4' }}>
@@ -260,58 +107,15 @@ export default function Project() {
       </header>
 
       <div className="flex flex-1 overflow-hidden" style={{ height: 'calc(100vh - 49px)' }}>
-        {/* Notes panel */}
-        <aside
-          className="flex-shrink-0 flex flex-col overflow-hidden"
-          style={{ width: '300px', borderRight: '1px solid #E0DED9', backgroundColor: '#F8F7F4' }}
-        >
-          <div className="px-4 py-3 flex-shrink-0" style={{ borderBottom: '1px solid #E0DED9' }}>
-            <div className="flex items-center gap-2 mb-2">
-              <FileText className="w-3.5 h-3.5" style={{ color: '#6B6860' }} />
-              <span
-                className="text-xs font-semibold uppercase tracking-wide"
-                style={{ color: '#6B6860', fontFamily: 'Inter, system-ui, sans-serif' }}
-              >
-                Notes
-              </span>
-            </div>
-            <div className="flex gap-1">
-              {(['active', 'all', 'resolved'] as const).map((f) => (
-                <button
-                  key={f}
-                  onClick={() => setFilter(f)}
-                  className="px-2 py-0.5 rounded text-xs capitalize transition-colors"
-                  style={{
-                    backgroundColor: filter === f ? '#3D6B8E' : 'transparent',
-                    color: filter === f ? '#FFFFFF' : '#6B6860',
-                    fontFamily: 'Inter, system-ui, sans-serif',
-                    border: `1px solid ${filter === f ? '#3D6B8E' : '#E0DED9'}`,
-                    cursor: 'pointer',
-                  }}
-                >
-                  {f}
-                </button>
-              ))}
-            </div>
-          </div>
+        {/* Notes panel (left, 300px) + Note detail drawer (rendered inside NotesPanel, z:50) */}
+        <NotesPanel
+          onNoteSelect={handleNoteSelect}
+          onAskAI={(_noteId, _content) => {
+            if (isDemoMode) showToast('Demo mode — AI not connected', 'demo')
+          }}
+        />
 
-          <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-2">
-            {filteredNotes.length === 0 ? (
-              <div
-                className="text-center py-8 text-sm"
-                style={{ color: '#B0AEA9', fontFamily: 'Inter, system-ui, sans-serif' }}
-              >
-                {filter === 'resolved' ? 'No resolved notes yet' : 'All notes resolved!'}
-              </div>
-            ) : (
-              filteredNotes.map((note) => (
-                <NoteCard key={note.id} note={note} onResolve={handleResolve} onClick={handleNoteCardClick} />
-              ))
-            )}
-          </div>
-        </aside>
-
-        {/* Script editor */}
+        {/* Screenplay editor */}
         <main className="flex-1 overflow-hidden">
           <ScreenplayEditor
             content={screenplay}
@@ -320,10 +124,7 @@ export default function Project() {
               setScreenplay(fountain)
               if (isDemoMode) showToast('Demo mode — not saved', 'demo')
             }}
-            onNoteClick={(noteId) => {
-              const match = notes.find((n) => n.id === noteId)
-              if (match) handleNoteCardClick(match)
-            }}
+            onNoteClick={handleGutterNoteClick}
             highlightBlockId={highlightBlockId}
             onEditorReady={handleEditorReady}
           />
@@ -335,7 +136,7 @@ export default function Project() {
           style={{ width: '48px', borderLeft: '1px solid #E0DED9', backgroundColor: '#F8F7F4' }}
         >
           <div
-            className="w-7 h-7 rounded-full flex items-center justify-center animate-pulse-soft"
+            className="w-7 h-7 rounded-full flex items-center justify-center"
             style={{ backgroundColor: '#EBF2F8' }}
             title="AI Partner — coming soon"
           >
