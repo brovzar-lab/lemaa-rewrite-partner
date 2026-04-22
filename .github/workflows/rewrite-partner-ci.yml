@@ -1,0 +1,19 @@
+name: Rewrite Partner CI
+on:
+  push:
+    paths: ["apps/rewrite-partner/**"]
+  pull_request:
+    paths: ["apps/rewrite-partner/**"]
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/rewrite-partner
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run build
