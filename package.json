@@ -1,0 +1,15 @@
+{
+  "name": "lemaa-rewrite-partner",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspace=apps/rewrite-partner",
+    "build": "npm run build --workspace=apps/rewrite-partner",
+    "test": "npm run test --workspace=apps/rewrite-partner"
+  }
+}
